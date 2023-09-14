@@ -1,0 +1,352 @@
+---
+title: "PLASMA FERITTIN CONCENTRATION STUDY"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+
+## Task 1:
+### Test if plasma ferritin concentration differs between male and female athletes. Make sure that the assumptions of the test are satisfied. State null and alternative hypotheses and your conclusion. 
+
+### Solution: 
+
+The 2-Sample indepenent T-test is the appropriate test to use since it is used
+to compare two sample means from two independent populations.The assumptions of the test include:
+
+*  The two populations should be independent
+
+*  Each population should be normally distributed.
+
+* The two populations should have equal variances
+
+```{r}
+# Step 1:loading the data
+library(readxl)
+df <- read_excel("Sports-Data-Science.xlsx")
+
+#first five observation
+head(df)
+```
+### Assumption 1: Each population should be normally distributed.
+
+**1.Using a histogram**
+```{r}
+#loading required libraries
+library(ggplot2) #visualizations
+library(tidymodels)
+
+# Create a histogram for females
+ggplot(df[df$Sex == "female", ], aes(x = Ferr)) +
+  geom_histogram(fill = "blue", bins = 20) +
+  labs(title = "Plasma Ferritin Levels for Females", x = "Ferritin Levels", y = "Frequency")
+
+```
+```{r}
+# Create a histogram for females
+ggplot(df[df$Sex == "male", ], aes(x = Ferr)) +
+  geom_histogram(fill = "red", bins = 20) +
+  labs(title = "Plasma Ferritin Levels for Females", x = "Ferritin Levels", y = "Frequency")
+```
+
+**2.Attempting to use the Shapiro-Wilk test**
+
+* Null hypothesis: Data is normally distributed.
+
+* Alternative hypothesis : Data is not normally distributed
+
+* Decision: If the p-value is less than alpha, we reject the null hypothesis.
+```{r}
+# Dividing the data into male and female groups
+male_data <- df$Ferr[df$Sex == "male"]
+female_data <- df$Ferr[df$Sex == "female"]
+```
+
+
+```{r}
+# Perform Shapiro-Wilk test for normality for male data
+shapiro_test_male <- shapiro.test(male_data)
+
+# Extract p-value
+p_value_male <- shapiro_test_male$p.value
+
+# Check the null hypothesis (H0: Data is normally distributed)
+if (p_value_male > 0.05) {
+  cat("Shapiro-Wilk test: p-value =", p_value, "\n")
+  cat("Fail to reject the null hypothesis. Data appears to be normally distributed.\n")
+} else {
+  cat("Shapiro-Wilk test: p-value =", p_value_male, "\n")
+  cat("Reject the null hypothesis. Data does not appear to be normally distributed.\n")
+}
+```
+```{r}
+# Perform Shapiro-Wilk test for normality for female data
+shapiro_test_female <- shapiro.test(female_data)
+
+# Extract p-value
+p_value_female <- shapiro_test_female$p.value
+
+# Check the null hypothesis (H0: Data is normally distributed)
+if (p_value_female > 0.05) {
+  cat("Shapiro-Wilk test: p-value =", p_value, "\n")
+  cat("Fail to reject the null hypothesis. Data appears to be normally distributed.\n")
+} else {
+  cat("Shapiro-Wilk test: p-value =", p_value_female, "\n")
+  cat("Reject the null hypothesis. Data does not appear to be normally distributed.\n")
+}
+```
+
+**Conclusion:**
+
+The assumption of normality is not met. For the independent samples t-test, when each group is larger than 15, your data can be skewed and the test results will still be valid. **
+
+### Assumption 2: The groups are independent.
+Independent samples contain different sets of items in each sample. In our case we have two different set of items i.e Male and Female. Hence the groups are independent
+
+### Assumption 3: The two populations should have equal variances.
+
+When the sample sizes for both groups are roughly equal, and you have a moderate sample size, t-tests are robust to unequal variances. If one group has twice the standard deviation of another group, it’s time to use Welch’s t-test! However, you don’t need to worry about smaller differences.
+```{r}
+var(male_data)
+var(female_data)
+```
+* Since the assumption of equal variances has not been met we use the Welch t-test.
+
+**Carrying out the Welch test as a result of unequal variances:**
+
+**1. State the hypothesis:**
+
+Null hypothesis: Differences in the mean plasma ferritin concentration of the two groups                  is 0.
+
+Alternative Hypothesis: Differences in the mean plasma ferritin concentration of the two                         groups is not equal to 0
+
+**2. Level of significance:**
+
+Alpha-0.05
+
+**3. Test Statistic: **
+
+```{r}
+t.test(male_data,female_data,paired=FALSE,alternative = "two.sided",var.equal = FALSE)
+```
+**4. Decision:**
+Since 9.033e-10 is less than 0.05, we reject the null hypothesis. Hence implying that the plasma ferritin concentration differs between the males and females.
+
+
+## Task 2
+### Randomly divide the dataset into two sets, training (n1 = 141) and testing (n2 =61).
+
+```{r}
+# Set the seed for reproducibility
+set.seed(123)
+
+# Get the total number of samples in your dataset
+total_samples <- nrow(df)
+
+# Number of samples for the training set
+n1 <- 141
+
+# Number of samples for the testing set
+n2 <- 61
+
+# Randomly shuffle the row indices of your dataset
+shuffled_indices <- sample(1:total_samples)
+
+# Create the training set (first n1 shuffled indices)
+training_set <- df[shuffled_indices[1:n1], ]
+
+# Create the testing set (next n2 shuffled indices)
+testing_set <- df[shuffled_indices[(n1 + 1):(n1 + n2)], ]
+
+```
+
+```{r}
+dim(training_set)
+dim(testing_set)
+```
+**Use the training dataset to:**
+
+**a.Write down the population equation for a regression model with Ferr as the response and other variables as predictors except for the Sport variable.**
+
+The scenario described above is a multiple regression since we have more than one predictor variable and one response variable.
+
+
+**b.Fit the model in (a) and gradually remove insignificant predictors until all the variables in the model are statistically significant. Is a full model better than a smaller model? Use an appropriate test or score to support your argument.**
+```{r}
+# Fit a multiple linear regression model (excluding 'Sport' variable)
+model <- lm(Ferr ~ .-Sport, data = training_set)
+
+# Print the summary of the regression model
+summary(model)
+```
+**Overall significance of a model(Full model).**
+
+**1.Stating the hypothesis:**
+
+Null hypothesis: All the coefficients in the model are 0
+
+Alternative hypothesis: Atleast one of the coefficients in the model is not 0
+
+**2.Level of Significance:**
+
+alpha = 0.05
+
+**3.Test Statistic:**
+
+Fcalc from the output above = 6.24
+
+**4.Critical value(Ftables):**
+```{r}
+# Computing the critical value for the F-statistic
+cv = qf(0.95,9,131)
+cv
+```
+**5.Decision:**
+
+Since 6.24 > 1.952, we reject the null hypothesis and conclude that at least one of the variables is significant and thus has an effect on the dependent variable(Plasma Concentration).
+
+**Individual Significance(P-value)-Checking for the significant variables**
+
+Regression software compares the t statistic on your variable with values in the Student's t distribution to determine the P value of each variable. Hence l will use the P-values from the output to determine the significant variables.
+```{r}
+#Extracting the p-values from the output
+summary(model)$coefficients[,"Pr(>|t|)"] 
+```
+The significant variables have a p-value less than 0.05. Hence they include: Sex, LBM and BMI.
+
+**Fitting a model with the significant variables**
+```{r}
+# Fit a multiple linear regression model (excluding 'Sport' variable)
+model2 <- lm(Ferr ~ Sex+LBM+BMI, data = training_set)
+
+# Print the summary of the regression model
+summary(model2)
+```
+**Checking which model is better using the anova**
+
+**1.State the hypothesis:**
+
+Null hypothesis: Full model is equal to the reduced model
+
+Alternative hypothesis : Full model is better than the reduced model
+
+**2.Level of significance**
+
+alpha = 0.05
+
+**3.Fit the anova**
+```{r}
+result<-anova(model, model2)
+
+# Optionally, print the ANOVA table for more details
+print(result)
+
+```
+**4.Decision**
+
+Since the p-value (0.469) is greater than alpha(0.05), we fail to reject the null hypothesis. This suggests that there is no significant difference in model fit between Model 1 and Model 2. 
+
+**(c)Check the linear regression assumptions for the model fitted in part (b). Do the assumptions hold for your model.**
+
+**Model Diagnostics**
+```{r}
+#loading required packages
+library(performance) #test model assumptions
+library(see)
+```
+```{r}
+#Checking all assumptions at once
+check_model(model)
+```
+
+
+**Checking for linearity**
+```{r}
+plot(model, which = 1)
+```
+Here we see that linearity seems to hold reasonably well, as the red line is close to the dashed line. We can see some outliers present in the diagram above.
+
+**Normality of the residuals- Shapiro Test**
+
+**1.State the hypothesis:**
+Null Hypothesis: Residuals are normally distributed.
+
+Alternative Hypothesis : Residuals are not normally distributed.
+
+**2. Level of significance**
+Alpha = 0.05
+
+**3. Test Statistic(P-value)**
+Using the shapiro wilk test
+```{r}
+#Extracting the residuals from the model
+res <- residuals(model)
+
+#checking for normality
+shapiro.test(res)
+```
+**4.Decision**
+Since the p-value= 1.933e-05 is less than alpha = 0.05; we reject the null hypothesis. This implies that the residuals are not normally distributed hence violating the assumption.
+
+
+**Homogeneity of the residuals**
+
+**1.State the hypothesis**
+Null hypothesis: Residuals have a constant variance.
+
+Alternative hypothesis: Residuals do not have a constant variance.
+
+**2.Level of significance**
+alpha=0.05
+
+**3.Test Statistic-Breusch-Pagan Test**
+
+```{r}
+#loading required librarie
+library(lmtest)
+
+#performing the test
+bptest(model)
+```
+**4.Decision:**
+
+Since the p-value = 0.1191 is greater than 0.05, we fail to reject the null hypothesis. This implies that the residuals have a constant variance hence satisfying the assumption.
+
+**No Multicollinearity**
+
+**1.State the hypothesis:**
+
+Null hypothesis: No multicollinearity
+
+Alternative hypothesis: Presence of multicollinearity
+
+**2.Level of significance**
+alpha=0.05
+
+**3.Test Statistic- VIF**
+```{r}
+library(regclass)
+VIF(model)
+```
+
+**No outliers**
+```{r}
+# Residual Plot
+residuals <- residuals(model)
+predicted <- fitted(model)
+plot(predicted, residuals, main="Residual Plot", xlab="Fitted Values", ylab="Residuals")
+abline(h = 0, col = "red", lwd = 2)  # Add a horizontal line at y=0
+```
+```{r}
+# Cook's Distance
+cooksd <- cooks.distance(model)
+plot(cooksd, pch = 19, main="Cook's Distance Plot", xlab="Index", ylab="Cook's Distance")
+abline(h = 4/length(cooksd), col = "red", lty = 2)  # Add a horizontal line at threshold
+
+```
+**Conclusion:**
+
+From the observation, we can see some of outliers in the Cook's Distance plot.
+
+Therefore the assumptions that hold for the model are: residuals have a constant variance and linearity.The assumption of normality of residuals; no outliers have been violated
+
+
